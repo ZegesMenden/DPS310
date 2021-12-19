@@ -1,2 +1,2 @@
 # DPS310
-speed optimized library for the DPS310
+DPS310 sensor library with a focus on speed.
