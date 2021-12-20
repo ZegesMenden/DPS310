@@ -84,28 +84,17 @@ bool DPS310::init()
 
 void DPS310::read_calib() {
 
+    while (1) {
+      delay(10);
+      read(119, 0x08, 1);
+      if ( bitRead(Wire.read(), 7) == 1 ) { break; }
+    }
+
     byte coeffs[18];
 
     read(119, 0x10, 18);
 
-    coeffs[0] = Wire.read();
-    coeffs[1] = Wire.read();
-    coeffs[2] = Wire.read();
-    coeffs[3] = Wire.read();
-    coeffs[4] = Wire.read();
-    coeffs[5] = Wire.read();
-    coeffs[6] = Wire.read();
-    coeffs[7] = Wire.read();
-    coeffs[8] = Wire.read();
-    coeffs[9] = Wire.read();
-    coeffs[10] = Wire.read();
-    coeffs[11] = Wire.read();
-    coeffs[12] = Wire.read();
-    coeffs[13] = Wire.read();
-    coeffs[14] = Wire.read();
-    coeffs[15] = Wire.read();
-    coeffs[16] = Wire.read();
-    coeffs[17] = Wire.read();
+    for ( int i = 0; i < 18; i ++ ) { coeffs[i] = Wire.read(); }
 
     _c0 = ((uint16_t)coeffs[0] << 4) | (((uint16_t)coeffs[1] >> 4) & 0x0F);
     _c0 = twosComplement(_c0, 12);
@@ -125,6 +114,16 @@ void DPS310::read_calib() {
     _c20 = twosComplement(((uint16_t)coeffs[12] << 8) | (uint16_t)coeffs[13], 16);
     _c21 = twosComplement(((uint16_t)coeffs[14] << 8) | (uint16_t)coeffs[15], 16);
     _c30 = twosComplement(((uint16_t)coeffs[16] << 8) | (uint16_t)coeffs[17], 16);
+
+    Serial.print("c0 = "); Serial.println(_c0);
+    Serial.print("c1 = "); Serial.println(_c1);
+    Serial.print("c00 = "); Serial.println(_c00);
+    Serial.print("c10 = "); Serial.println(_c10);
+    Serial.print("c01 = "); Serial.println(_c01);
+    Serial.print("c11 = "); Serial.println(_c11);
+    Serial.print("c20 = "); Serial.println(_c20);
+    Serial.print("c21 = "); Serial.println(_c21);
+    Serial.print("c30 = "); Serial.println(_c30);
 
 }
 
@@ -151,44 +150,50 @@ void DPS310::soft_reset()
 void DPS310::read_alt()
 {
 
-    read(119, 0x00, 6);
+  read(119, 0x00, 6);
 
-    uint32_t pressure_uncomp_int = twosComplement((uint32_t)(Wire.read()|Wire.read()<<8|Wire.read()<<16), 24);
-    uint32_t temp_uncomp_int = twosComplement((uint32_t)(Wire.read()|Wire.read()<<8|Wire.read()<<16), 24);
+  int32_t pressure_uncomp_int = (int32_t)(Wire.read()<<24|Wire.read()<<16|Wire.read()<<8) / 256;
+  int32_t temp_uncomp_int = (int32_t)(Wire.read()<<24|Wire.read()<<16|Wire.read()<<8) / 256;
 
-    float pressure_uncomp = (float)pressure_uncomp_int / 1040384.0f;
-    float temp_uncomp = (float)temp_uncomp_int / 1040384.0f;
+  float pressure_uncomp = (float)pressure_uncomp_int / 1040384.0f; // divide by scaling factor
+  float temp_uncomp = (float)temp_uncomp_int / 1040384.0f;
 
-    float pressure_comp =
-      (int32_t)_c00 +
-      pressure_uncomp * ((int32_t)_c10 +
-                   pressure_uncomp * ((int32_t)_c20 + pressure_uncomp * (int32_t)_c30)) +
-      temp_uncomp *
-          ((int32_t)_c01 +
-           pressure_uncomp * ((int32_t)_c11 + pressure_uncomp * (int32_t)_c21));
-    temperature = _c0 * (float)0.5 + _c1 * temp_uncomp;
+  float pressure_comp =
+    (int32_t)_c00 +
+    pressure_uncomp * ((int32_t)_c10 +
+                  pressure_uncomp * ((int32_t)_c20 + pressure_uncomp * (int32_t)_c30)) +
+    temp_uncomp *
+        ((int32_t)_c01 +
+          pressure_uncomp * ((int32_t)_c11 + pressure_uncomp * (int32_t)_c21));
+  temperature = _c0 * (float)0.5 + _c1 * temp_uncomp;
 
-    altitude = 44330 * (1.0f - powf((pressure_comp / 100) / 1013.529f, 0.1903f));
+  pressure = pressure_comp;
+
+  altitude = 44330.0f * (1.0f - powf((pressure_comp / 100.0f) / 1013.529f, 0.1903f)); 
 }
 
 void DPS310::read_alt_fast()
 {
-    read(119, 0x00, 6);
 
-    uint32_t pressure_uncomp_int = twosComplement((uint32_t)(Wire.read()|Wire.read()<<8|Wire.read()<<16), 24);
-    uint32_t temp_uncomp_int = twosComplement((uint32_t)(Wire.read()|Wire.read()<<8|Wire.read()<<16), 24);
+  read(119, 0x00, 6);
 
-    float pressure_uncomp = (float)pressure_uncomp_int / 1040384.0f;
-    float temp_uncomp = (float)temp_uncomp_int / 1040384.0f;
+  int32_t pressure_uncomp_int = (int32_t)(Wire.read()<<24|Wire.read()<<16|Wire.read()<<8) / 256;
+  int32_t temp_uncomp_int = (int32_t)(Wire.read()<<24|Wire.read()<<16|Wire.read()<<8) / 256;
 
-    float pressure_comp =
-      (int32_t)_c00 +
-      pressure_uncomp * ((int32_t)_c10 +
-                   pressure_uncomp * ((int32_t)_c20 + pressure_uncomp * (int32_t)_c30)) +
-      temp_uncomp *
-          ((int32_t)_c01 +
-           pressure_uncomp * ((int32_t)_c11 + pressure_uncomp * (int32_t)_c21));
-    temperature = _c0 * (float)0.5 + _c1 * temp_uncomp;
+  float pressure_uncomp = (float)pressure_uncomp_int / 1040384.0f; // divide by scaling factor
+  float temp_uncomp = (float)temp_uncomp_int / 1040384.0f;
 
-    altitude = 44330 * (1.0f - fastPow((pressure_comp / 100) / 1013.529f));
+  float pressure_comp =
+    (int32_t)_c00 +
+    pressure_uncomp * ((int32_t)_c10 +
+                  pressure_uncomp * ((int32_t)_c20 + pressure_uncomp * (int32_t)_c30)) +
+    temp_uncomp *
+        ((int32_t)_c01 +
+          pressure_uncomp * ((int32_t)_c11 + pressure_uncomp * (int32_t)_c21));
+  temperature = _c0 * (float)0.5 + _c1 * temp_uncomp;
+
+  pressure = pressure_comp;
+
+  altitude = 44330.0f * (1.0f - fastPow((pressure_comp / 100.0f) / 1013.529f)); 
+
 }
