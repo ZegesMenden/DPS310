@@ -9,8 +9,8 @@ class DPS310
 {
     public:
 
-        float altitude, pressure, temperature;
-
+        float altitude, temperature;
+        float pressure;
         DPS310() {};
 
         bool init();
@@ -29,8 +29,8 @@ class DPS310
         void read_alt_fast(); // uses optimized powf function to reduce runtime (and accuracy) by A LOT 
 
     private:
-        uint32_t _c0, _c1, _c00, _c10; // calibration values
-        uint16_t _c01, _c11, _c20, _c21, _c30;
+        int32_t _c0, _c1, _c00, _c10; // calibration values
+        int16_t _c01, _c11, _c20, _c21, _c30;
 
         int32_t twosComplement(int32_t val, uint8_t bits);
 
