@@ -1,2 +1,2 @@
 # DPS310
-DPS310 sensor library with a focus on speed.
+I wrote this library in a fit of rage as i realized that my code would not execute fast enough due to Adafruit's (superior) DPS310 library taking an entire 1.8 milliseconds to read the sensor on my custom SAMD21 board. After several hours of work i was able to get my library down to taking about 300 microseconds to read the sensor with read_alt_fast(), nearly 6 times faster than Adafruit's. Please keep in mind that Adafruit's library is still a significantly better option due to the high ammount of configurability and ability to use SPI, this librarie's only advantae is speed at the cost of roughly 10-20 centimeters of absolute precision.
